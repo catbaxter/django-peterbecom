@@ -103,6 +103,7 @@ TEMPLATE_LOADERS = (
 JINGO_EXCLUDE_APPS = (
   'debug_toolbar',
   'admin',
+  'bootstrapform',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -139,6 +140,7 @@ INSTALLED_APPS = (
     # 'django.contrib.admindocs',
     'djcelery',
     'compressor',
+    'bootstrapform',
     'apps.plog',
     'apps.homepage',
     'apps.legacy',

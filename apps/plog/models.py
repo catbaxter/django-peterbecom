@@ -84,7 +84,7 @@ class BlogItem(models.Model):
             if self.display_format == 'structuredtext':
                 self.text_rendered = utils.stx_to_html(self.text, self.codesyntax)
             else:
-                raise NotImplementedError(self.display_format)
+                self.text_rendered = utils.markdown_to_html(self.text, self.codesyntax)
             self.text_rendered = utils.cache_prefix_files(self.text_rendered)
             self.save()
         return self.text_rendered

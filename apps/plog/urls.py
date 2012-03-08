@@ -4,6 +4,8 @@ from django.conf.urls.defaults import patterns, include, url
 import views
 urlpatterns = patterns('',
     url('^$', views.plog_index, name='plog_index'),
+    url('^add/$', views.add, name='plog_add'),
+    url('^add/preview$', views.preview_post, name='plog_preview_post'),
     url('^new-comments$', views.new_comments, name='new_comments'),
     url('^prepare.json$', views.prepare_json, name='prepare'),
     url('^preview.json$', views.preview_json, name='preview'),

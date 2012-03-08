@@ -20,11 +20,14 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.template import Template
 from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
 from .models import BlogItem, BlogComment, Category
 from .utils import render_comment_text, valid_email, utc_now
 from apps.redisutils import get_redis_connection
 from apps.view_cache_utils import cache_page_with_prefix
 from . import tasks
+from . import utils
+from .forms import BlogForm
 
 
 ONE_HOUR = 60 * 60
@@ -383,3 +386,81 @@ def new_comments(request):
                         .order_by('-add_date')
                         .select_related('blogitem')[:100])
     return render(request, 'plog/new-comments.html', data)
+
+
+@login_required
+@transaction.commit_on_success
+def add(request):
+    data = {}
+    user = request.user
+    assert user.is_staff or user.is_superuser
+    if request.method == 'POST':
+        form = BlogForm(data=request.POST)
+        if form.is_valid():
+            blogitem = BlogItem.objects.create(
+              oid=form.cleaned_data['oid'],
+              title=form.cleaned_data['title'],
+              text=form.cleaned_data['text'],
+              summary=form.cleaned_data['summary'],
+              codesyntax=form.cleaned_data['codesyntax'],
+              url=form.cleaned_data['url'],
+              pub_date=form.cleaned_data['pub_date'],
+              keywords=form.cleaned_data['keywords'],
+            )
+            for category in form.cleaned_data['categories']:
+                blogitem.categories.add(category)
+            blogitem.save()
+
+    else:
+        initial = {
+          'pub_date': utc_now() + datetime.timedelta(seconds=60 * 60),
+          'display_format': 'markdown',
+        }
+        form = BlogForm(initial=initial)
+    data['form'] = form
+    return render(request, 'plog/add.html', data)
+
+
+@csrf_exempt
+@login_required
+@require_POST
+def preview_post(request):
+    from django.template import Context
+    from django.template.loader import get_template
+
+    post_data = dict()
+    for key, value in request.POST.items():
+        if value:
+            post_data[key] = value
+    post_data['categories'] = request.POST.getlist('categories[]')
+    post_data['oid'] = 'doesntmatter'
+    post_data['keywords'] = []
+    #if post_data['url'] == ['']:
+    #    post_data['url'] = None
+    #print post_data
+    form = BlogForm(data=post_data)
+    if not form.is_valid():
+        return http.HttpResponse(str(form.errors))
+
+    class MockPost(object):
+        def count_comments(self):
+            return 0
+        @property
+        def rendered(self):
+            if self.display_format == 'structuredtext':
+                return utils.stx_to_html(self.text, self.codesyntax)
+            else:
+                return utils.markdown_to_html(self.text, self.codesyntax)
+
+    post = MockPost()
+    post.title = form.cleaned_data['title']
+    post.text = form.cleaned_data['text']
+    post.display_format = form.cleaned_data['display_format']
+    post.codesyntax = form.cleaned_data['codesyntax']
+    post.url = form.cleaned_data['url']
+    post.pub_date = form.cleaned_data['pub_date']
+    post.categories = Category.objects.filter(pk__in=form.cleaned_data['categories'])
+#    print repr(post.rendered)
+    template = get_template("plog/_post.html")
+    context = Context({'post': post})
+    return http.HttpResponse(template.render(context))

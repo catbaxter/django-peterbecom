@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title_prefix %}Add blogitem{% endblock %}
+
+{% block extrahead %}
+<style>
+#id_text, #id_oid, #id_title, #id_summary, #id_url { width:100%; }
+</style>
+{% endblock %}
+
+{% block extrajs %}
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+<script src="{{ static("js/editpost.js") }}"></script>
+{% endblock %}
+
+{% block content %}
+
+<form action="." method="post">
+{{ bootstrapform(form)|safe }}
+</form>
+
+<p style="border-top:1px solid #ccc">
+preview
+</p>
+
+<div id="preview-container"></div>
+
+{% endblock %}
