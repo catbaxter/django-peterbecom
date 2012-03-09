@@ -46,5 +46,4 @@ def timesince(date):
 def bootstrapform(form):
     template = get_template("bootstrapform/form.html")
     context = Context({'form': form})
-
     return template.render(context)

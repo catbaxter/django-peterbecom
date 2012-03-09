@@ -4,6 +4,7 @@ import datetime
 import re
 import functools
 import json
+import cgi
 from collections import defaultdict
 from pprint import pprint
 from django.contrib.sites.models import Site
@@ -21,13 +22,13 @@ from django.contrib.auth.decorators import login_required
 from django.template import Template
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-from .models import BlogItem, BlogComment, Category
+from .models import BlogItem, BlogComment, Category, BlogFile
 from .utils import render_comment_text, valid_email, utc_now
 from apps.redisutils import get_redis_connection
 from apps.view_cache_utils import cache_page_with_prefix
 from . import tasks
 from . import utils
-from .forms import BlogForm
+from .forms import BlogForm, BlogFileUpload
 
 
 ONE_HOUR = 60 * 60
@@ -390,7 +391,7 @@ def new_comments(request):
 
 @login_required
 @transaction.commit_on_success
-def add(request):
+def add_post(request):
     data = {}
     user = request.user
     assert user.is_staff or user.is_superuser
@@ -418,7 +419,26 @@ def add(request):
         }
         form = BlogForm(initial=initial)
     data['form'] = form
-    return render(request, 'plog/add.html', data)
+    data['page_title'] = 'Add post'
+    return render(request, 'plog/edit.html', data)
+
+
+@login_required
+@transaction.commit_on_success
+def edit_post(request, oid):
+    blogitem = get_object_or_404(BlogItem, oid=oid)
+    data = {}
+    user = request.user
+    assert user.is_staff or user.is_superuser
+    if request.method == 'POST':
+        form = BlogForm(instance=blogitem, data=request.POST)
+        if form.is_valid():
+            raise NotImplementedError
+    else:
+        form = BlogForm(instance=blogitem)
+    data['form'] = form
+    data['page_title'] = 'Edit post'
+    return render(request, 'plog/edit.html', data)
 
 
 @csrf_exempt
@@ -435,16 +455,15 @@ def preview_post(request):
     post_data['categories'] = request.POST.getlist('categories[]')
     post_data['oid'] = 'doesntmatter'
     post_data['keywords'] = []
-    #if post_data['url'] == ['']:
-    #    post_data['url'] = None
-    #print post_data
     form = BlogForm(data=post_data)
     if not form.is_valid():
         return http.HttpResponse(str(form.errors))
 
     class MockPost(object):
+
         def count_comments(self):
             return 0
+
         @property
         def rendered(self):
             if self.display_format == 'structuredtext':
@@ -460,7 +479,53 @@ def preview_post(request):
     post.url = form.cleaned_data['url']
     post.pub_date = form.cleaned_data['pub_date']
     post.categories = Category.objects.filter(pk__in=form.cleaned_data['categories'])
-#    print repr(post.rendered)
     template = get_template("plog/_post.html")
     context = Context({'post': post})
     return http.HttpResponse(template.render(context))
+
+
+@login_required
+@transaction.commit_on_success
+def add_file(request):
+    data = {}
+    user = request.user
+    assert user.is_staff or user.is_superuser
+    if request.method == 'POST':
+        form = BlogFileUpload(request.POST, request.FILES)
+        if form.is_valid():
+            #print form.cleaned_data['file']
+            instance = form.save()
+            url = reverse('edit_post', args=[instance.blogitem.oid])
+            return redirect(url)
+    else:
+        initial = {}
+        if request.REQUEST.get('oid'):
+            blogitem = get_object_or_404(BlogItem, oid=request.REQUEST.get('oid'))
+            initial['blogitem'] = blogitem
+        form = BlogFileUpload(initial=initial)
+    data['form'] = form
+    return render(request, 'plog/add_file.html', data)
+
+
+@login_required
+def post_thumbnails(request, oid):
+    blogitem = get_object_or_404(BlogItem, oid=oid)
+    blogfiles = (BlogFile.objects
+                         .filter(blogitem=blogitem)
+                         .order_by('-add_date'))
+    from sorl.thumbnail import get_thumbnail
+    html = ''
+    # XXX very rough and hacky code
+    for blogfile in blogfiles:
+        im = get_thumbnail(blogfile.file, '100x100', #crop='center',
+                           quality=81)
+
+        url_ = settings.STATIC_URL + im.url
+        tag = ('<img src="%s" alt="%s" width="%s" height="%s">' %
+                 (url_, blogitem.title, im.width, im.height))
+        html += tag
+        html += ' (%s, %s)' % (im.width, im.height)
+        html += '<br><input value="%s">' % cgi.escape(tag).replace('"', '&quot;')
+        html += '<br>'
+
+    return http.HttpResponse(html)

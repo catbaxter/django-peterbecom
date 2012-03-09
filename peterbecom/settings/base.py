@@ -141,6 +141,7 @@ INSTALLED_APPS = (
     'djcelery',
     'compressor',
     'bootstrapform',
+    'sorl.thumbnail',
     'apps.plog',
     'apps.homepage',
     'apps.legacy',
@@ -217,3 +218,6 @@ COMPRESS_CSS_FILTERS = [
     'compressor.filters.css_default.CssAbsoluteFilter',
     'compressor.filters.cssmin.CSSMinFilter',
 ]
+
+
+UPLOAD_FILE_DIR = path('..', 'peterbecom-static-content')

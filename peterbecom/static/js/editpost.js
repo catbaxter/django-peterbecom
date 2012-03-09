@@ -14,7 +14,7 @@ var Preview = (function() {
 
   return {
      update: function() {
-       $.ajax('/plog/add/preview', {
+       $.ajax('/plog/preview', {
           data: getData(),
            dataType: 'html',
            type: 'POST',
@@ -34,6 +34,18 @@ var Preview = (function() {
       return true;
     }
   }
+})();
+
+var Thumbnails = (function() {
+  var oid = location.pathname.split('/').slice(-1)[0];
+  return function() {
+    $.ajax('/plog/thumbnails/' + oid, {
+       success: function(response) {
+         $('#thumbnails .inner').html(response);
+         $('#thumbnails:hidden').show();
+       }
+    });
+  };
 })();
 
 function slugify(s) {
@@ -58,5 +70,7 @@ $(function() {
   $('#id_oid').on('keydown', function() {
     $('#id_title').off('keydown');
   });
+
+  Thumbnails();
 
 });
