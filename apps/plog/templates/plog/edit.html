@@ -22,7 +22,7 @@
 
 <h2>{{ page_title }}</h2>
 
-<form action="." method="post">
+<form action="" method="post">{{ csrf() }}
 {{ bootstrapform(form)|safe }}
 
   <div class="form-actions">
@@ -32,7 +32,9 @@
 </form>
 
 <p style="border-top:1px solid #ccc">
-preview
+preview &darr;
+&nbsp;
+<a href="{{ url('blog_post', blogitem.oid) }}">view &rarr;</a>
 </p>
 
 <div id="preview-container"></div>

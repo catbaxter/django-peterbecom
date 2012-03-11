@@ -403,6 +403,7 @@ def add_post(request):
               title=form.cleaned_data['title'],
               text=form.cleaned_data['text'],
               summary=form.cleaned_data['summary'],
+              display_format=form.cleaned_data['display_format'],
               codesyntax=form.cleaned_data['codesyntax'],
               url=form.cleaned_data['url'],
               pub_date=form.cleaned_data['pub_date'],
@@ -411,7 +412,8 @@ def add_post(request):
             for category in form.cleaned_data['categories']:
                 blogitem.categories.add(category)
             blogitem.save()
-
+            url = reverse('edit_post', args=[blogitem.oid])
+            return redirect(url)
     else:
         initial = {
           'pub_date': utc_now() + datetime.timedelta(seconds=60 * 60),
@@ -420,6 +422,7 @@ def add_post(request):
         form = BlogForm(initial=initial)
     data['form'] = form
     data['page_title'] = 'Add post'
+    data['blogitem'] = blogitem
     return render(request, 'plog/edit.html', data)
 
 
@@ -433,11 +436,31 @@ def edit_post(request, oid):
     if request.method == 'POST':
         form = BlogForm(instance=blogitem, data=request.POST)
         if form.is_valid():
-            raise NotImplementedError
+            blogitem.oid = form.cleaned_data['oid']
+            blogitem.title = form.cleaned_data['title']
+            blogitem.text = form.cleaned_data['text']
+            blogitem.text_rendered = ''
+            blogitem.summary = form.cleaned_data['summary']
+            blogitem.display_format = form.cleaned_data['display_format']
+            blogitem.codesyntax = form.cleaned_data['codesyntax']
+            blogitem.pub_date = form.cleaned_data['pub_date']
+            keywords = [x.strip() for x in form.cleaned_data['keywords']
+                        if x.strip()]
+            blogitem.keywords = keywords
+            blogitem.categories.clear()
+            for category in form.cleaned_data['categories']:
+                blogitem.categories.add(category)
+            #[x.delete() for x in blogitems.categories
+            blogitem.save()
+
+            url = reverse('edit_post', args=[blogitem.oid])
+            return redirect(url)
+
     else:
         form = BlogForm(instance=blogitem)
     data['form'] = form
     data['page_title'] = 'Edit post'
+    data['blogitem'] = blogitem
     return render(request, 'plog/edit.html', data)
 
 

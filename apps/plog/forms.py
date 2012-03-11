@@ -30,6 +30,11 @@ class BlogForm(forms.ModelForm):
         self.fields['keywords'].required = False
 
 
+class EditBlogForm(BlogForm):
+
+    pass
+
+
 class BlogFileUpload(forms.ModelForm):
 
     class Meta:
