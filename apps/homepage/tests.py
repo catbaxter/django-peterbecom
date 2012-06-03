@@ -120,3 +120,67 @@ class HomepageTestCase(TestCase):
         html = render_to_string('homepage/test.html', context_instance=ccontext)
         assert 'Name:Peter' in html
         assert 'main.css' not in html
+
+
+class TestTView(TestCase):
+
+    def test_sample_get(self):
+        url = reverse('testview')
+        r = self.client.get(url)
+        assert r.status_code == 200
+        assert 'hi!' in r.content
+        assert 'text/html' in r['content-type']
+        assert 'charset=utf-8' in r['content-type'].lower()
+
+    def test_sample2_get(self):
+        url = reverse('testview2')
+        r = self.client.get(url)
+        assert r.status_code == 200
+        assert '<h1>hi!</h1>' in r.content
+        assert 'text/html' in r['content-type']
+        assert 'charset=utf-8' in r['content-type'].lower()
+
+    def test_sample2_post(self):
+        url = reverse('testview2')
+        r = self.client.post(url, {'a': 10, 'b': 20})
+        assert r.status_code == 200
+        import json
+        assert json.loads(r.content)['sum'] == 30
+        assert 'text/html' in r['content-type']
+        assert 'charset=utf-8' in r['content-type'].lower()
+
+    def test_cached_view_get(self):
+        url = reverse('cachedview')
+        r = self.client.get(url)
+        first = r.content
+        from time import sleep
+        sleep(0.01)
+        r = self.client.get(url)
+        second = r.content
+        assert second == first
+
+    def test_login_required_view_get(self):
+        url = reverse('loginrequiredview')
+        r = self.client.get(url)
+        assert r.status_code == 302
+
+        from django.contrib.auth.models import User
+        user = User()
+        user.username = 'peter'
+        user.set_password('secret')
+        user.save()
+
+        assert self.client.login(username='peter', password='secret')
+        r = self.client.get(url)
+        assert r.status_code == 200
+        assert 'Secret' in r.content
+
+    def test_advanced_cached_view(self):
+        url = reverse('advancedcachedview')
+        r = self.client.get(url)
+        first = r.content
+        from time import sleep
+        sleep(0.01)
+        r = self.client.get(url)
+        second = r.content
+        assert second == first

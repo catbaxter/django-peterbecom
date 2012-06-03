@@ -6,6 +6,11 @@ import views
 
 
 urlpatterns = patterns('',
+    url(r'^testview$', views.SampleTView.as_view(), name='testview'),
+    url(r'^testview2$', views.Sample2TView.as_view(), name='testview2'),
+    url(r'^cachedview$', views.CachedSampleView.as_view(), name='cachedview'),
+    url(r'^advcachedview$', views.AdvancedCachedView.as_view(), name='advancedcachedview'),
+    url(r'^loginrequiredview$', views.LoginRequiredSampleView.as_view(), name='loginrequiredview'),
     url('^$', views.home, name='home'),
     url(r'(.*?)/?rss.xml$', cache_page(PlogFeed(), 60 * 60)),
     url('^search$', views.search, name='search'),

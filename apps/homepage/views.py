@@ -21,6 +21,8 @@ from apps.redisutils import get_redis_connection
 from apps.rediscounter import redis_increment
 from .utils import (parse_ocs_to_categories, make_categories_q, split_search)
 from apps.view_cache_utils import cache_page_with_prefix
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import cache_page
 
 
 def _home_key_prefixer(request):
@@ -379,3 +381,54 @@ def blog_post_by_alias(request, alias):
     blogitem = get_object_or_404(BlogItem, alias=alias)
     url = reverse('blog_post', args=[blogitem.oid])
     return http.HttpResponsePermanentRedirect(url)
+
+
+
+from tviews import TView, class_decorator
+
+class SampleTView(TView):
+
+    def get(self, request):
+        self.write('hi!')
+
+
+class Sample2TView(TView):
+
+    def get(self, request):
+        data = {'now': datetime.datetime.utcnow()}
+        self.render("homepage/sample2view.html", data)
+
+    def post(self, request):
+        a = int(request.POST.get('a', 0))
+        b = int(request.POST.get('b', 0))
+        self.write({'sum': a + b})
+
+    def head(self, request):
+        return http.HttpResponse('OK')
+
+
+@class_decorator(cache_page)
+class CachedSampleView(TView):
+
+    def get(self, request):
+        now = datetime.datetime.utcnow()
+        self.write(now.strftime('%f'))
+
+@class_decorator(login_required)
+class LoginRequiredSampleView(TView):
+
+    def get(self, request):
+        self.write("Secrets")
+
+
+def picky_cache_page(request):
+    print "IN PICKY"
+    if request.GET.get('bypass'):
+        print "\treturning None"
+        return None
+    print "\treturning custom prefix"
+    return 'mycustomprefix'
+
+@class_decorator(cache_page_with_prefix(60, picky_cache_page))
+class AdvancedCachedView(CachedSampleView):
+    pass
