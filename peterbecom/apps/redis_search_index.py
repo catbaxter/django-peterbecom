@@ -92,6 +92,8 @@ class RedisSearchIndex(object):
             pipe.zrevrange('$tmp', 0, n, withscores=True)
             response = pipe.execute()
             scored_ids = response[1]
+        if not scored_ids:
+            return []
         titles = self._r.hmget('$titles', *[i[0] for i in scored_ids])
         titles = [unicode(t, 'utf-8') for t in titles]
         results = imap(lambda x: x[0] + (x[1],), izip(scored_ids, titles))
