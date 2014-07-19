@@ -26,7 +26,7 @@ class RedisSearchIndex(object):
         self._r = r
         self.min_word_length = min_word_length
 
-    def _clean_words(self, title):
+    def _clean_words(self, title, filter_stopwords=False):
         """Generate normalized alphanumeric words for a given title."""
         chars = '"[]():;?!,'
         translation = dict((ord(c), u'') for c in chars)
@@ -41,7 +41,9 @@ class RedisSearchIndex(object):
             for x in translate(title).split()
         ]
         for word in words:
-            if len(word) >= self.min_word_length and word.lower() not in STOPWORDS:
+            if len(word) >= self.min_word_length:
+                if filter_stopwords and word.lower() not in STOPWORDS:
+                    continue
                 # if the word contains non-ascii characters, try to convert
                 # it to a ascii equivalent so that it's possible to type
                 # "naive" when you don't even know how to type "naïve"
@@ -70,7 +72,7 @@ class RedisSearchIndex(object):
             pipe.execute()
         return True
 
-    def search(self, query, n=500):
+    def search(self, query, n=500, filter_stopwords=False):
         """Return the top N objects from the autocomplete index."""
 
         def query_score(terms, title):
@@ -86,7 +88,9 @@ class RedisSearchIndex(object):
             words = list(self._clean_words(title))
             return sum(term_score(t, w) for t, w in product(terms, words))
 
-        terms = list(self._clean_words(query))
+        terms = list(
+            self._clean_words(query, filter_stopwords=filter_stopwords)
+        )
         with self._r.pipeline() as pipe:
             pipe.zinterstore('$tmp', terms, aggregate='max')
             pipe.zrevrange('$tmp', 0, n, withscores=True)
