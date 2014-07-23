@@ -56,17 +56,17 @@ class RedisSearchIndex(object):
                 yield word.lower()
             # yield ''.join(c for c in word if c.isalnum())
 
-    def _prefixes(self, title):
+    def _prefixes(self, title, filter_stopwords=False):
         """Generate the prefixes for a given title."""
-        for word in self._clean_words(title):
+        for word in self._clean_words(title, filter_stopwords=filter_stopwords):
             prefixer = partial(word.__getslice__, 0)
             for prefix in imap(prefixer, range(1, len(word) + 1)):
                 yield prefix
 
-    def add_item(self, item_id, item_title, score):
+    def add_item(self, item_id, item_title, score, filter_stopwords=False):
         """Add an item to the autocomplete index."""
         with self._r.pipeline() as pipe:
-            for prefix in self._prefixes(item_title):
+            for prefix in self._prefixes(item_title, filter_stopwords=filter_stopwords):
                 pipe.zadd(prefix, item_id, score)
             pipe.hset('$titles', item_id, item_title)
             pipe.execute()
@@ -91,14 +91,25 @@ class RedisSearchIndex(object):
         terms = list(
             self._clean_words(query, filter_stopwords=filter_stopwords)
         )
+        final = {
+            'terms': terms,
+            'results': []
+        }
+        if not terms:
+            return final
         with self._r.pipeline() as pipe:
             pipe.zinterstore('$tmp', terms, aggregate='max')
             pipe.zrevrange('$tmp', 0, n, withscores=True)
             response = pipe.execute()
             scored_ids = response[1]
         if not scored_ids:
-            return []
+            return final
         titles = self._r.hmget('$titles', *[i[0] for i in scored_ids])
         titles = [unicode(t, 'utf-8') for t in titles]
         results = imap(lambda x: x[0] + (x[1],), izip(scored_ids, titles))
-        return sorted(results, key=lambda r: query_score(terms, r[2]) * r[1], reverse=True)
+        final['results'] = sorted(
+            results,
+            key=lambda r: query_score(terms, r[2]) * r[1],
+            reverse=True
+        )
+        return final
